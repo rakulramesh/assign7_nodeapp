@@ -1,0 +1,48 @@
+pipeline {
+    agent any 
+    stages {
+	
+        stage('checkout scm') { 
+            steps {
+				sh "ssh ubuntu@10.0.2.181 'git clone https://github.com/rakulramesh/assign7_nodeapp.git ; cd assign7_nodeapp'"
+             }
+        }
+        stage('docker-build') { 
+            steps {
+                sh "ssh ubuntu@10.0.2.181 'cd assign7_nodeapp ; docker build -t assignment7 .'"
+            }
+        }
+		stage('ECR Login') {
+            steps {
+                script{
+                sh "ssh ubuntu@10.0.2.181 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 556674478142.dkr.ecr.us-east-1.amazonaws.com'"
+                }
+				}
+			}
+        stage('ECR Push') { 
+            steps {
+                 script {
+                sh "ssh ubuntu@10.0.1.144 'docker tag assignment7:latest 556674478142.dkr.ecr.us-east-1.amazonaws.com/assignment7:latest; docker push 556674478142.dkr.ecr.us-east-1.amazonaws.com/assignment7:latest'"
+         }
+        }
+      }
+      stage('app ECR login') {
+            steps {
+                script {
+                sh "ssh ubuntu@10.0.2.181 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 556674478142.dkr.ecr.us-east-1.amazonaws.com'"
+                }
+				}
+			}
+      stage('Deploy') { 
+            steps {
+                 script {
+				 docker.withRegistry(
+					'https://556674478142.dkr.ecr.us-east-1.amazonaws.com',
+					'ecr:us-east-1:my.aws.credentials')
+					def myImage = docker.build('assignment7')
+					myImage.push('lts')
+         }
+        }
+      }
+    }
+}
